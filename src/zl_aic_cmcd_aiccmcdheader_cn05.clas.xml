@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <VSEOCLASS>
+    <CLSNAME>ZL_AIC_CMCD_AICCMCDHEADER_CN05</CLSNAME>
+    <LANGU>E</LANGU>
+    <STATE>1</STATE>
+    <CLSCCINCL>X</CLSCCINCL>
+    <FIXPT>X</FIXPT>
+    <UNICODE>X</UNICODE>
+   </VSEOCLASS>
+   <DESCRIPTIONS>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_I_ZZGIT_REPO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Attribute Inputreadyness-Getter</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_M_ZZGIT_REPO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Attribute Metadata-Getter</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_V_ZZGIT_REPO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Template Method for Input Help Getter</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>GET_ZZGIT_REPO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Attribute Getter</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CMPNAME>SET_ZZGIT_REPO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Attribute Setter</DESCRIPT>
+    </SEOCOMPOTX>
+   </DESCRIPTIONS>
+   <DESCRIPTIONS_SUB>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_V_ZZGIT_REPO</CMPNAME>
+     <SCONAME>IV_INDEX</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Row Index on Table</DESCRIPT>
+    </SEOSUBCOTX>
+    <SEOSUBCOTX>
+     <CMPNAME>GET_V_ZZGIT_REPO</CMPNAME>
+     <SCONAME>IV_MODE</SCONAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Call Mode</DESCRIPT>
+    </SEOSUBCOTX>
+   </DESCRIPTIONS_SUB>
+  </asx:values>
+ </asx:abap>
+</abapGit>

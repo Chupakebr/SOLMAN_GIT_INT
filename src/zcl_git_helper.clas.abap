@@ -5,8 +5,10 @@ class ZCL_GIT_HELPER definition
 
 public section.
 
+  class-methods SCHEDULE_FOLLOW_UP_JOB
+    exporting
+      !EV_OK type BOOLEAN .
   class-methods SET_DOCS_STATUS .
-  class-methods SCHEDULE_FOLLOW_UP_JOB .
   class-methods GET_NEXT_RUN_TIME
     importing
       !IT_REPORTS type ZGIT_REPO_STOP_TAB
@@ -22,6 +24,9 @@ public section.
       !IV_STARTED_AT type STRING
     exporting
       !EV_DATE_TIME type TIMESTAMP .
+  class-methods GET_ALL_CD_TO_PROC
+    exporting
+      !ET_CRM_GUID type CRMT_OBJECT_GUID_TAB .
   class-methods GET_CYCLE_CD
     importing
       !IV_CRM_GUID type CRMT_OBJECT_GUID
@@ -30,6 +35,11 @@ public section.
   class-methods GET_IN_PROC_REPO
     exporting
       !ET_REPORTS type ZGIT_REPO_STOP_TAB .
+  class-methods GET_GIT_SETTINGS
+    importing
+      !IV_CRM_GUID type CRMT_OBJECT_GUID
+    returning
+      value(ES_GIT_SETTINGS) type ZGIT_SETTINGS .
   class-methods IS_GIT_ENABLED
     importing
       !IV_CRM_GUID type CRMT_OBJECT_GUID
@@ -56,7 +66,11 @@ public section.
       !IV_GIT_DATA type ZGIT_DATA
     exporting
       !EV_OK type BOOLEAN .
-  class-methods SET_IN_PROC_CDS_DATA .
+  class-methods SET_GIT_DATA_CD_DB
+    importing
+      !IV_GIT_DATA type ZGIT_DATA
+    exporting
+      !EV_OK type BOOLEAN .
   class-methods GET
     importing
       !IV_BODY type STRING
@@ -77,8 +91,7 @@ public section.
       !EV_OK type BOOLEAN .
   class-methods GIT_DISPATCH_WORKFLOW
     importing
-      !IV_REPO type CHAR60
-      !IV_WORKFLOW type ZDTEL00000Q
+      !IV_GIT_SET type ZGIT_SETTINGS
     exporting
       !EV_OK type BOOLEAN .
   class-methods GIT_GET_LAST_WORKFLOW_RUN
@@ -86,6 +99,9 @@ public section.
       !IV_REPO type CHAR60
     exporting
       !ES_GIT_DATA type ZGIT_DATA .
+  class-methods GIT_GET_USER
+    exporting
+      !EV_USER type SMOG_RELBY .
   class-methods GIT_GET_WORKFLOW_RUN
     importing
       !IV_REPO type CHAR60
@@ -119,7 +135,7 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 
     ev_ok = 0.
 
-    select single time from zgit_time where repo = @iv_git_data-repo_s into @lv_time.
+    select single time from zgit_set where repo = @iv_git_data-repo_s into @lv_time.
     if lv_time is initial.
       select single time from zgit into @lv_time.
     endif.
@@ -326,9 +342,25 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
   endmethod.
 
 
-  method get_cycle_cd.
+  method get_all_cd_to_proc.
     "guid = 005056B75C641EE88C9BC660D352781F
     select distinct h~guid
+      from crmd_customer_h as h
+      left join crm_jest as s on s~objnr = h~guid and s~inact ='' and s~stat = 'E0025'
+      left join tsocm_cr_context as cont on h~guid = cont~created_guid
+      left join slan_header as ccl on ccl~slan_id = cont~slan_id
+      left join zgit_set as set on ccl~slan_name = set~ccl and h~zzgit_repo = set~testset_id
+      where h~zzbypassgit = '' and h~zzgit_repo <> ''
+      and set~repo is not null
+      and set~testset_key is not null
+      and set~testplan is not null
+      into table @et_crm_guid.
+  endmethod.
+
+
+  method get_cycle_cd.
+    "guid = 005056B75C641EE88C9BC660D352781F
+        select distinct h~guid
       from aic_release_cycl as c
       left join tsocm_cr_context as cd on c~smi_project = cd~project_id and process_type = 'YMMJ'
       left join crm_jest as s on s~OBJNR = cd~created_guid and s~INACT ='' and s~stat = 'E0025'
@@ -338,34 +370,54 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
   endmethod.
 
 
+  method get_git_settings.
+    select single set~* from tsocm_cr_context as cont
+      left join slan_header as ccl on ccl~slan_id = cont~slan_id
+      left join zgit_set as set  on ccl~slan_name = set~ccl
+      where cont~created_guid = @iv_crm_guid
+      into @data(lv_git_settings).
+    move-corresponding lv_git_settings to es_git_settings.
+  endmethod.
+
+
   method get_in_proc_repo.
-    select distinct h~zzgit_repo as repo_s,
-        h~zzgit_status as status,
-        h~zzgit_workflow as workflow_id,
-        h~zzgit_run_id as run_id
-      from crmd_customer_h as h
-      where ( h~zzgit_status = 'in_progress' or h~zzgit_status = 'queued' )
-      and  zzbypassgit = ''
-      and zzgit_repo <> ''
-      into table @data(et_repos).
+*    select distinct h~zzgit_repo as repo,
+*        h~zzgit_status as status,
+*        h~zzgit_workflow as workflow_id,
+*        h~zzgit_run_id as run_id
+*      from crmd_customer_h as h
+*      where ( h~zzgit_status = 'in_progress' or h~zzgit_status = 'queued' )
+*      and  zzbypassgit = ''
+*      and zzgit_repo <> ''
+*      into table @data(et_repos).
+
+    select distinct set~repo,
+          h~zzgit_status as status,
+          h~zzgit_workflow as workflow_id,
+          h~zzgit_run_id as run_id
+    from crmd_customer_h as h
+    left join crm_jest as s on s~objnr = h~guid and s~inact ='' and s~stat = 'E0025'
+    left join tsocm_cr_context as cont on h~guid = cont~created_guid
+    left join slan_header as ccl on ccl~slan_id = cont~slan_id
+    left join zgit_set as set on ccl~slan_name = set~ccl and h~zzgit_repo = set~testset_id
+    where ( h~zzgit_status = 'in_progress' or h~zzgit_status = 'queued' )
+    and h~zzbypassgit = '' and h~zzgit_repo <> ''
+    and set~repo is not null
+    and set~testset_key is not null
+    and set~testplan is not null
+    into table @data(et_repos).
 
     loop at et_repos into data(lv_repos).
       data lv_repo_line type zgit_repo_stop.
       move-corresponding lv_repos to lv_repo_line.
-      call method zcl_git_helper=>get_repo_name_long
-        exporting
-          iv_repo_s = lv_repo_line-repo_s
-        importing
-          ev_repo   = lv_repo_line-repo.
-
       select single
         s~start_at as start_at,
         s~stop_at from
         zgit_status as s
-      where s~repo = @lv_repo_line-repo
-      and s~workfolw_id = @lv_repo_line-workflow_id
-      and s~run_id = @lv_repo_line-run_id into (@lv_repo_line-start_at, @lv_repo_line-stop_at).
-      insert lv_repo_line into et_reports index sy-tabix.
+      where s~workfolw_id = @lv_repo_line-workflow_id
+      and s~run_id = @lv_repo_line-run_id
+      into (@lv_repo_line-start_at, @lv_repo_line-stop_at).
+      append lv_repo_line to et_reports.
     endloop.
 
   endmethod.
@@ -413,24 +465,25 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 
 
   method get_repo_name_long.
-
-    " get long txt from domain
-    " Name of the domain
-    data(lv_domain) = 'ZDTEL00000G'.
-    " logon laguage
-    data(lv_lang) = cl_abap_syst=>get_logon_language( ).
-
-    select single t~ddtext
-      into @data(lv_dom_repo)
-      from dd07l as l
-      inner join dd07t as t on l~domname = t~domname and
-                               l~valpos = t~valpos and
-                               l~domvalue_l = t~domvalue_l
-      where l~domname    = @lv_domain
-        and t~ddlanguage = @lv_lang
-      and l~domvalue_l = @iv_repo_s.
-
-    ev_repo = lv_dom_repo.
+    "not used any more
+*
+*    " get long txt from domain
+*    " Name of the domain
+*    data(lv_domain) = 'ZDTEL00000G'.
+*    " logon laguage
+*    data(lv_lang) = cl_abap_syst=>get_logon_language( ).
+*
+*    select single t~ddtext
+*      into @data(lv_dom_repo)
+*      from dd07l as l
+*      inner join dd07t as t on l~domname = t~domname and
+*                               l~valpos = t~valpos and
+*                               l~domvalue_l = t~domvalue_l
+*      where l~domname    = @lv_domain
+*        and t~ddlanguage = @lv_lang
+*      and l~domvalue_l = @iv_repo_s.
+*
+*    ev_repo = lv_dom_repo.
   endmethod.
 
 
@@ -463,32 +516,33 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 
   method git_dispatch_workflow.
     "https://docs.github.com/en/rest/actions/workflows?apiVersion=2022-11-28#create-a-workflow-dispatch-event
-
     data:
       lv_body        type string,
       lv_uri         type string,
       lv_response    type string,
       lv_http_status type string,
+      lv_key         type string,
+      lv_plan        type string,
       lv_repo        type string.
 
-*    if iv_repo is initial.
-*      lv_repo = 'cctests-shared-blueprint-uftone'.
-*    else.
-    lv_repo = iv_repo.
-*    endif.
+    if iv_git_set is initial.
+      lv_repo = 'cctests-shared-blueprint-uftone'.
+      lv_key  = 'TEST_SET_XD-10116'.
+      lv_plan = 'XD-2539'.
+    else.
+      lv_repo = iv_git_set-repo.
+      lv_key  = iv_git_set-testset_key.
+      lv_plan = iv_git_set-testplan.
+    endif.
     ev_ok = 0.
     if lv_repo is not initial.
 
-      concatenate '/repos/GitHub-EDP/' lv_repo '/actions/workflows/' iv_workflow '/dispatches' into lv_uri.
+      concatenate '/repos/GitHub-EDP/' lv_repo '/dispatches' into lv_uri.
 
-      concatenate '{ "ref": "main"'
-      "'"inputs": {'
-      "'"test-plan-key": "XD-2539",'
-      "'"mtb-file-path": "MTB Files/Test Plans/Test_Plan_XD-2539.mtb",'
-      "'"artifact-name": "uftone-tests-report",'
-      "'"environment": "pre"'  " Optional, specify if needed
-      "'}}'
-      '}' into lv_body.
+      concatenate '{"event_type": "webhook",'
+      '"client_payload": {"testkeyUFT": "' lv_key '",'
+      '"testplan": "' lv_plan '"'
+      '}}' into lv_body.
 
       call method zcl_git_helper=>post
         exporting
@@ -497,8 +551,11 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
         importing
           ev_http_response             = lv_response
           ev_http_response_status_code = lv_http_status.
-      ev_ok = 1.
-
+      if lv_response is initial.
+        ev_ok = 1.
+      else.
+        ev_ok = 0.
+      endif.
     endif.
   endmethod.
 
@@ -513,11 +570,11 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
       lv_http_status type string,
       lv_repo        type string.
 
-*    if iv_repo is initial.
-*      lv_repo = 'cctests-shared-blueprint-uftone'.
-*    else.
+    if iv_repo is initial.
+      lv_repo = 'cctests-shared-blueprint-uftone'. "test
+    else.
       lv_repo = iv_repo.
-*    endif.
+    endif.
 
     if lv_repo is not initial.
       es_git_data-repo = lv_repo.
@@ -553,7 +610,8 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 
         <table>         type any table,
         <field>         type any,
-        <field_value>   type data.
+        <field_value>   type data,
+        <field_2>       type any.
 
       field-symbols:
         <lv_field> type any,
@@ -622,6 +680,33 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
           endif.
           unassign: <field>, <field_value>.
 
+          assign component 'event' of structure <data> to <field>.
+          if <field> is assigned.
+            lr_data = <field>.
+            if lr_data is not initial.
+              assign lr_data->* to <field_value>.
+              es_git_data-event = <field_value>.
+            endif.
+          endif.
+          unassign: <field>, <field_value>.
+
+          assign component 'TRIGGERING_ACTOR' of structure <data> to <field>.
+          if <field> is assigned.
+            lr_data = <field>.
+            if lr_data is not initial.
+              assign lr_data->* to <field_2>.
+              assign component 'LOGIN' of structure <field_2> to <field>.
+              if <field> is assigned.
+                lr_data = <field>.
+                if lr_data is not initial.
+                  assign lr_data->* to <field_value>.
+                  es_git_data-git_user = <field_value>.
+                endif.
+              endif.
+            endif.
+          endif.
+          unassign: <field>, <field_value>, <field_2>.
+
 *          assign component 'updated_at' of structure <data> to <field>.
 *          if <field> is assigned.
 *            lr_data = <field>.
@@ -634,6 +719,74 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
           exit. "take only last run.
         endloop.
       endif.
+    endif.
+
+  endmethod.
+
+
+  method git_get_user.
+    "https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#get-a-workflow-run
+
+    data:
+      lv_body        type string,
+      lv_uri         type string,
+      lv_response    type string,
+      lv_http_status type string,
+      lv_repo        type string,
+      lv_run_id      type string.
+
+
+    lv_uri = '/user'.
+
+    call method zcl_git_helper=>get
+      exporting
+        iv_body                      = lv_body
+        iv_uri                       = lv_uri
+      importing
+        ev_http_response             = lv_response
+        ev_http_response_status_code = lv_http_status.
+
+    "prase json
+
+    data lr_data type ref to data.
+
+    call method /ui2/cl_json=>deserialize
+      exporting
+        json         = lv_response
+        pretty_name  = /ui2/cl_json=>pretty_mode-user
+        assoc_arrays = abap_true
+      changing
+        data         = lr_data.
+
+    field-symbols:
+      <data>          type data,
+      <results>       type any,
+      <structure>     type any,
+      <result_struct> type any,
+      <result_field>  type any,
+
+      <table>         type any table,
+      <field>         type any,
+      <field_value>   type data.
+
+    field-symbols:
+      <lv_field> type any,
+      <ld_data>  type ref to data,
+      <ls_row>   type any.
+
+
+    assign lr_data->* to <data>.
+    if <data> is assigned.
+
+      assign component 'login' of structure <data> to <field>.
+      if <field> is assigned.
+        lr_data = <field>.
+        if lr_data is not initial.
+          assign lr_data->* to <field_value>.
+          ev_user = <field_value>.
+        endif.
+      endif.
+      unassign: <field>, <field_value>.
     endif.
 
   endmethod.
@@ -654,8 +807,8 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 *      lv_repo = 'cctests-shared-blueprint-uftone'.
 *      lv_run_id = '000012832176618'.
 *    else.
-      lv_repo = iv_repo.
-      lv_run_id = iv_run_id.
+    lv_repo = iv_repo.
+    lv_run_id = iv_run_id.
 *    endif.
 
     if lv_repo is not initial.
@@ -693,6 +846,7 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 
         <table>         type any table,
         <field>         type any,
+        <field_2>       type any,
         <field_value>   type data.
 
       field-symbols:
@@ -758,6 +912,33 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
         endif.
         unassign: <field>, <field_value>.
 
+        assign component 'event' of structure <data> to <field>.
+        if <field> is assigned.
+          lr_data = <field>.
+          if lr_data is not initial.
+            assign lr_data->* to <field_value>.
+            es_git_data-event = <field_value>.
+          endif.
+        endif.
+        unassign: <field>, <field_value>.
+
+        assign component 'TRIGGERING_ACTOR' of structure <data> to <field>.
+        if <field> is assigned.
+          lr_data = <field>.
+          if lr_data is not initial.
+            assign lr_data->* to <field_2>.
+            assign component 'LOGIN' of structure <field_2> to <field>.
+            if <field> is assigned.
+              lr_data = <field>.
+              if lr_data is not initial.
+                assign lr_data->* to <field_value>.
+                es_git_data-git_user = <field_value>.
+              endif.
+            endif.
+          endif.
+        endif.
+        unassign: <field>, <field_value>, <field_2>.
+
 *          assign component 'updated_at' of structure <data> to <field>.
 *          if <field> is assigned.
 *            lr_data = <field>.
@@ -768,10 +949,10 @@ CLASS ZCL_GIT_HELPER IMPLEMENTATION.
 *          endif.
 *          unassign: <field>, <field_value>.
         exit. "take only last run.
+      endif.
     endif.
-  endif.
 
-endmethod.
+  endmethod.
 
 
   method is_git_enabled.
@@ -1055,117 +1236,105 @@ endmethod.
 
     constants co_job_task_name type char32 value 'ZGIT_TEST_UPDATE'.
 
-    if iv_start_at is not initial.
-      data:
-        lv_date type btcsdate,
-        lv_time type btcstime.
+    "first check if job is already scheduled?
+    select single jobname from tbtco where jobname = @co_job_task_name and status = 'S'
+      into @data(lv_job_s).
+    "schedule only one time
+    if lv_job_s = ''.
+      if iv_start_at is not initial.
+        data:
+          lv_date type btcsdate,
+          lv_time type btcstime.
 
-      convert time stamp iv_start_at time zone sy-zonlo
-      into date lv_date time lv_time.
+        convert time stamp iv_start_at time zone sy-zonlo
+        into date lv_date time lv_time.
 
 * check if there is a job currently running
-      rv_success = abap_true.
-      data(lt_task) = cl_td_task_manager=>get_all_open_tasks(
-        iv_task_name = co_job_task_name ).
-      if lt_task is not initial.
-        do 5 times.
-          loop at lt_task assigning <fs_task>.
-            if <fs_task>->get_status( ) = cl_td_task_manager=>con_task_status_in_progress. "'P'. " in progress
-              lv_job_exists = abap_true.
-              wait up to 5 seconds.
-              continue.
-            else.
-              lv_job_exists = abap_false.
-            endif.
-          endloop.
-        enddo.
-      endif.
+        rv_success = abap_true.
+        data(lt_task) = cl_td_task_manager=>get_all_open_tasks(
+          iv_task_name = co_job_task_name ).
+        if lt_task is not initial.
+          do 5 times.
+            loop at lt_task assigning <fs_task>.
+              if <fs_task>->get_status( ) = cl_td_task_manager=>con_task_status_in_progress. "'P'. " in progress
+                lv_job_exists = abap_true.
+                wait up to 5 seconds.
+                continue.
+              else.
+                lv_job_exists = abap_false.
+              endif.
+            endloop.
+          enddo.
+        endif.
 
-      if lv_job_exists = abap_true.
-        rv_success = abap_false.
-        return.
-        " add log message and exit ?
-      endif.
-
-      try.
-          lv_task_guid = cl_system_uuid=>create_uuid_x16_static( ).
-        catch cx_uuid_error.
-          " Message: Internal error
-          message e298(ags_td) into lv_dummystr.
-          ls_balmi = cl_td_assistant=>prepare_app_log( ).
-          "append ls_balmi to ip_application_log.
+        if lv_job_exists = abap_true.
           rv_success = abap_false.
           return.
-      endtry.
+          " add log message and exit ?
+        endif.
+
+        try.
+            lv_task_guid = cl_system_uuid=>create_uuid_x16_static( ).
+          catch cx_uuid_error.
+            " Message: Internal error
+            message e298(ags_td) into lv_dummystr.
+            ls_balmi = cl_td_assistant=>prepare_app_log( ).
+            "append ls_balmi to ip_application_log.
+            rv_success = abap_false.
+            return.
+        endtry.
 
 * Create a new job with JOB_OPEN
 
-      call function 'JOB_OPEN'
-        exporting
-          jobname          = co_job_task_name
-        importing
-          jobcount         = lv_job_id
-        exceptions
-          cant_create_job  = 1
-          invalid_job_data = 2
-          jobname_missing  = 3
-          others           = 4.
-      if sy-subrc <> 0.
-        rv_success = abap_false.
-      endif.
+        call function 'JOB_OPEN'
+          exporting
+            jobname          = co_job_task_name
+          importing
+            jobcount         = lv_job_id
+          exceptions
+            cant_create_job  = 1
+            invalid_job_data = 2
+            jobname_missing  = 3
+            others           = 4.
+        if sy-subrc <> 0.
+          rv_success = abap_false.
+        endif.
 
 *------------------------------------------------------------------------------
 * Connect one report to the job by SUBMIT
-      submit (co_job_task_name) and return
-                    with p_taskid = lv_task_guid
-                    with selection-table lt_selopt
-                    user sy-uname
-                    via job co_job_task_name
-                    number lv_job_id.
-      if sy-subrc <> 0.
-        rv_success = abap_false.
-      endif.
+        submit (co_job_task_name) and return
+                      with p_taskid = lv_task_guid
+                      with selection-table lt_selopt
+                      user sy-uname
+                      via job co_job_task_name
+                      number lv_job_id.
+        if sy-subrc <> 0.
+          rv_success = abap_false.
+        endif.
 
 *------------------------------------------------------------------------------
 * Close the job definition with JOB_CLOSE to release the job
-
-      " Convert the date and time from "000..." to space, so that JOB_CLOSE
-      " doesn't recognize them as specified
-*****  IF ls_batch-sdlstrtdt IS INITIAL.
-*****    ls_batch-sdlstrtdt = lc_space_dats.
-*****    ls_batch-sdlstrttm = lc_space_tims.
-*****  ENDIF.
-*****  IF ls_batch-laststrtdt IS INITIAL.
-*****    ls_batch-laststrtdt = lc_space_dats.
-*****    ls_batch-laststrttm = lc_space_tims.
-*****  ENDIF.
-      " Note that if you go to the JOB_CLOSE function module, you can find the
-      " detailed parameter documentation there
-      call function 'JOB_CLOSE'
-        exporting
-          jobcount             = lv_job_id
-          jobname              = co_job_task_name
-          strtimmed            = abap_true
-          sdlstrtdt            = lv_date
-          sdlstrttm            = lv_time
-*         prddays              = ls_batch-prddays
-*         prdhours             = ls_batch-prdhours
-*         prdmins              = ls_batch-prdmins
-*         prdmonths            = ls_batch-prdmonths
-*         prdweeks             = ls_batch-prdweeks
-*         laststrtdt           = ls_batch-laststrtdt
-*         laststrttm           = ls_batch-laststrttm
-        exceptions
-          cant_start_immediate = 1
-          invalid_startdate    = 2
-          jobname_missing      = 3
-          job_close_failed     = 4
-          job_nosteps          = 5
-          job_notex            = 6
-          lock_failed          = 7
-          others               = 8.
-      if sy-subrc <> 0.
-        rv_success = abap_false.
+        " Note that if you go to the JOB_CLOSE function module, you can find the
+        " detailed parameter documentation there
+        call function 'JOB_CLOSE'
+          exporting
+            jobcount             = lv_job_id
+            jobname              = co_job_task_name
+            strtimmed            = abap_true
+            sdlstrtdt            = lv_date
+            sdlstrttm            = lv_time
+          exceptions
+            cant_start_immediate = 1
+            invalid_startdate    = 2
+            jobname_missing      = 3
+            job_close_failed     = 4
+            job_nosteps          = 5
+            job_notex            = 6
+            lock_failed          = 7
+            others               = 8.
+        if sy-subrc <> 0.
+          rv_success = abap_false.
+        endif.
       endif.
     endif.
   endmethod.
@@ -1193,8 +1362,12 @@ endmethod.
         receiving
           rv_success  = data(lv_job_ok).
       if lv_job_ok = abap_true.
-        write:/ 'Update jod scheduled'.
+        ev_ok = 1.
+      else.
+        ev_ok = 0.
       endif.
+      else.
+        ev_ok = 0.
     endif.
 
   endmethod.
@@ -1296,12 +1469,43 @@ endmethod.
   endmethod.
 
 
-  method SET_IN_PROC_CDS_DATA.
+  method set_git_data_cd_db.
+    include: crm_mode_con. "Include with standard CRM constants
+    data:
+      lo_cd         type ref to cl_ags_crm_1o_api,
+      lv_log_handle type balloghndl.
+
+    select single * from crmd_customer_h where guid = @iv_git_data-guid into @data(lv_customer_h).
+
+    if lv_customer_h-zzbypassgit = ''.
+      lv_customer_h-zzgit_run_id = iv_git_data-run_id.
+      lv_customer_h-zzgit_workflow = iv_git_data-workflow_id.
+      if iv_git_data-conclusion is initial.
+        lv_customer_h-zzgit_status = iv_git_data-status.
+      else.
+        lv_customer_h-zzgit_status = iv_git_data-conclusion.
+      endif.
+
+      update crmd_customer_h from lv_customer_h.
+    endif.
+
   endmethod.
 
 
-  method SET_STATUS_BY_PPF.
-        data: lv_context         type ref to cl_doc_context_crm_order,
+  method set_status_by_ppf.
+    include: crm_mode_con. "Include with standard CRM constants
+
+    data: it_status          type crmt_status_comt,
+          is_status          type crmt_status_com,
+          ev_log_handle_itsm type balloghndl.
+
+    data:
+      lo_cd         type ref to cl_ags_crm_1o_api,
+      lv_log_handle type balloghndl.
+
+    "is_status-ref_guid = io_cd->av_header_guid.
+
+    data: lv_context         type ref to cl_doc_context_crm_order,
           lo_appl_object     type ref to object,
           li_container       type ref to if_swj_ppf_container,
           lo_partner         type ref to cl_partner_ppf,
@@ -1310,9 +1514,7 @@ endmethod.
           lc_container       type ref to if_swj_ppf_container,
           lc_exit            type ref to if_ex_exec_methodcall_ppf,
           lt_objects_to_save type crmt_object_guid_tab,
-          ls_objects_to_save like line of lt_objects_to_save,
-          lv_upd_str         type string.
-
+          ls_objects_to_save like line of lt_objects_to_save.
 
     call function 'CRM_ACTION_CONTEXT_CREATE'
       exporting
@@ -1326,30 +1528,30 @@ endmethod.
         order_read_failed              = 3
         others                         = 4.
     if sy-subrc <> 0.
+      rv_exec_status = 0.
+      exit.
     endif.
 
     lo_appl_object = lv_context->appl.
 
-    call function 'CRM_ORDER_ENQUEUE'
-      exporting
-        iv_guid  = iv_object_guid
-        iv_local = 'X'
-      exceptions
-        others   = 1.
-    if sy-subrc <> 0.
-
-    endif.
-
-*       get exit instance
+* get exit instance
     lc_exit ?= cl_exithandler_manager_ppf=>get_exit_handler(
-       ip_badi_definition_name = 'EXEC_METHODCALL_PPF' ).
+    ip_badi_definition_name = 'EXEC_METHODCALL_PPF' ).
 
-*       call HF_SET_STATUS - Status modification
+* call HF_SET_STATUS - Status modification
     create object lc_container
       type
       cl_swj_ppf_container.
     lc_container->set_value( element_name = 'USER_STATUS'
-                             data = iv_estatus ).
+    data = iv_estatus ).
+
+    call method cl_log_ppf=>create_log
+*  EXPORTING
+*    ip_object    = 'PPF'
+*    ip_subobject = 'PROCESSING'
+*    ip_ext_no    =
+      receiving
+        ep_handle = l_protocol_handle.
 
     try.
         call method lc_exit->execute
@@ -1361,29 +1563,54 @@ endmethod.
             ip_preview         = ' '
             ii_container       = lc_container
           receiving
-            rp_status          = rv_exec_status.
+            rp_status          = rp_status.
       catch cx_socm_condition_violated.
+        rv_exec_status = 0.
+        exit.
+*        cx_socm_declared_exception.
+*        raise error_occurred.
     endtry.
 
-*       Publish event
+    call method cl_log_ppf=>refresh_log
+      exporting
+        ip_handle = l_protocol_handle.
+
+* Publish event
     call function 'CRM_EVENT_PUBLISH_OW'
       exporting
         iv_obj_name = 'STATUS'
         iv_guid_hi  = iv_object_guid
         iv_kind_hi  = 'A'
         iv_event    = 'SAVE'.
+    if rp_status <> 1.
+      rv_exec_status = 0.
+      exit.
+    endif.
+    rv_exec_status = 1.
 
-      refresh lt_objects_to_save.
-      ls_objects_to_save =  iv_object_guid.
-      append ls_objects_to_save to lt_objects_to_save.
+    cl_ags_crm_1o_api=>get_instance(
+    exporting
+    iv_header_guid = iv_object_guid
+    iv_process_mode = gc_mode-change
+    importing
+    eo_instance = lo_cd
+    ).
 
-     call function 'CRM_ORDER_SAVE'
-        exporting
-          it_objects_to_save = lt_objects_to_save
-         iv_no_bdoc_send    = 'X'
-       exceptions
-         document_not_saved = 1
-         others             = 2.
+    call method lo_cd->save
+      exporting
+        iv_unlock      = 'X'
+      changing
+        cv_log_handle  = lv_log_handle
+      exceptions
+        error_occurred = 1
+        others         = 2.
+    if sy-subrc <> 0.
+* Implement suitable error handling here
+      rv_exec_status = 0.
+      exit.
+    endif.
+
+
 
   endmethod.
 
@@ -1399,8 +1626,19 @@ endmethod.
     get time stamp field lv_current_time.
     lv_run-start_at = lv_current_time."iv_git_data-started_at.
     lv_run-user_id = sy-uname.
+    lv_run-git_user = iv_git_data-git_user.
+    lv_run-testplan = iv_git_data-testplan.
+    lv_run-testset_key = iv_git_data-testset_key.
+    lv_run-event = iv_git_data-event.
+    lv_run-ccl = iv_git_data-ccl.
+    lv_run-testset_id = iv_git_data-testset_id.
 
-    select single time from zgit_time where repo = @iv_git_data-repo_s into @data(lv_time).
+    select single  SLAN_NAME from SLAN_HEADER where slan_id = @lv_run-ccl into @data(lv_slan).
+
+    select single time from zgit_set
+      where ccl = @lv_slan
+      and testset_id = @lv_run-testset_id
+      into @data(lv_time).
     if lv_time is initial.
       select single time from zgit into @lv_time.
     endif.

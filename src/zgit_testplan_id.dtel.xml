@@ -3,19 +3,18 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <DD04V>
-    <ROLLNAME>ZDTEL00000U</ROLLNAME>
+    <ROLLNAME>ZGIT_TESTPLAN_ID</ROLLNAME>
     <DDLANGUAGE>E</DDLANGUAGE>
-    <DOMNAME>ZDTEL00000U</DOMNAME>
-    <LOGFLAG>X</LOGFLAG>
-    <HEADLEN>55</HEADLEN>
+    <DOMNAME>ZGIT_TESTPLAN</DOMNAME>
+    <HEADLEN>20</HEADLEN>
     <SCRLEN1>10</SCRLEN1>
     <SCRLEN2>20</SCRLEN2>
     <SCRLEN3>40</SCRLEN3>
-    <DDTEXT>Test Exec. Status</DDTEXT>
-    <REPTEXT>Test Exec. Status</REPTEXT>
-    <SCRTEXT_S>Test Exec.</SCRTEXT_S>
-    <SCRTEXT_M>Test Exec. Status</SCRTEXT_M>
-    <SCRTEXT_L>Test Exec. Status</SCRTEXT_L>
+    <DDTEXT>Test Plan ID</DDTEXT>
+    <REPTEXT>Test Plan ID</REPTEXT>
+    <SCRTEXT_S>Test Plan</SCRTEXT_S>
+    <SCRTEXT_M>Test Plan ID</SCRTEXT_M>
+    <SCRTEXT_L>Test Plan ID</SCRTEXT_L>
     <DTELMASTER>E</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>

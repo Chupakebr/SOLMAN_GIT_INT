@@ -3,7 +3,7 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <OBJH>
-    <OBJECTNAME>ZGIT_TIME</OBJECTNAME>
+    <OBJECTNAME>ZGIT_SET</OBJECTNAME>
     <OBJECTTYPE>S</OBJECTTYPE>
     <CLIDEP>X</CLIDEP>
     <OBJCATEG>APPL</OBJCATEG>
@@ -11,30 +11,29 @@
    </OBJH>
    <OBJT>
     <LANGUAGE>E</LANGUAGE>
-    <OBJECTNAME>ZGIT_TIME</OBJECTNAME>
+    <OBJECTNAME>ZGIT_SET</OBJECTNAME>
     <OBJECTTYPE>S</OBJECTTYPE>
-    <DDTEXT>Timouts for jobs before canceling them</DDTEXT>
+    <DDTEXT>Github repo settings + timouts for jobs for canceling them</DDTEXT>
    </OBJT>
    <OBJS>
     <OBJS>
-     <OBJECTNAME>ZGIT_TIME</OBJECTNAME>
+     <OBJECTNAME>ZGIT_SET</OBJECTNAME>
      <OBJECTTYPE>S</OBJECTTYPE>
-     <TABNAME>ZGIT_TIME</TABNAME>
+     <TABNAME>ZGIT_SET</TABNAME>
      <DDIC>X</DDIC>
      <PRIM_TABLE>X</PRIM_TABLE>
     </OBJS>
    </OBJS>
    <TOBJ>
     <TDDAT>
-     <TABNAME>ZGIT_TIME</TABNAME>
+     <TABNAME>ZGIT_SET</TABNAME>
      <CCLASS>/SALM/TM</CCLASS>
     </TDDAT>
     <TVDIR>
-     <TABNAME>ZGIT_TIME</TABNAME>
+     <TABNAME>ZGIT_SET</TABNAME>
      <AREA>ZGIT_TABLE_MAINT</AREA>
-     <TYPE>2</TYPE>
-     <LISTE>0003</LISTE>
-     <DETAIL>0004</DETAIL>
+     <TYPE>1</TYPE>
+     <LISTE>0005</LISTE>
      <BASTAB>X</BASTAB>
      <FLAG>X</FLAG>
     </TVDIR>
