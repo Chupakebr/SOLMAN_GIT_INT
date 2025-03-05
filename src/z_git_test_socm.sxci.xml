@@ -18,6 +18,9 @@
      <item>
       <FLT_VAL>Z_GIT_RESET</FLT_VAL>
      </item>
+     <item>
+      <FLT_VAL>Z_GIT_SET</FLT_VAL>
+     </item>
     </FILTERS>
    </SXCI>
   </asx:values>
